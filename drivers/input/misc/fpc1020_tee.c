@@ -346,6 +346,32 @@ static ssize_t irq_cnt_get(struct device *device,
 }
 static DEVICE_ATTR(irq_cnt, S_IRUSR, irq_cnt_get, NULL);
 
+static ssize_t proximity_state_set(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fpc1020_data *fpc1020 = dev_get_drvdata(dev);
+	int rc, val;
+
+	rc = kstrtoint(buf, 10, &val);
+	if (rc)
+		return -EINVAL;
+
+	fpc1020->proximity_state = !!val;
+
+	if (fpc1020->fb_black) {
+		if (fpc1020->proximity_state) {
+			/* Disable IRQ when screen is off and proximity sensor is covered */
+			config_irq(fpc1020, false);
+		} else {
+			/* Enable IRQ when screen is off and proximity sensor is uncovered */
+			config_irq(fpc1020, true);
+		}
+	}
+
+	return count;
+}
+static DEVICE_ATTR(proximity_state, S_IWUSR, NULL, proximity_state_set);
+
 static ssize_t nav_set(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -407,6 +433,7 @@ static struct attribute *attributes[] = {
 	&dev_attr_clk_enable.attr,
 	&dev_attr_irq.attr,
 	&dev_attr_irq_cnt.attr,
+	&dev_attr_proximity_state.attr,
 	&dev_attr_nav.attr,
 	&dev_attr_proximity_state.attr,
 	NULL
